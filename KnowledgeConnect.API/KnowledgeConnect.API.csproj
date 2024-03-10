@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\KnowledgeConnect.BL\KnowledgeConnect.BL.csproj" />
     <ProjectReference Include="..\KnowledgeConnect.Model\KnowledgeConnect.Model.csproj" />
+    <ProjectReference Include="..\KnowledgeConnectDL\Database.csproj" />
   </ItemGroup>
 
 </Project>
