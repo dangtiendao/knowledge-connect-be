@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KnowledgeConnect.Common.Enum;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -8,19 +9,19 @@ using System.Threading.Tasks;
 
 namespace KnowledgeConnect.Model
 {
-    [Table("user")]
+    [Table("users")]
     public class User : BaseModel
     {
         /// <summary>
         /// ID user
         /// </summary>
         [Key]
-        public Guid UserID { get; set; }
+        public int UserID { get; set; }
 
         /// <summary>
         /// Mã user
         /// </summary>
-        public string UserCode { get; set; }
+        public string FullName { get; set; }
 
         /// <summary>
         /// Tài khoản user
@@ -30,21 +31,23 @@ namespace KnowledgeConnect.Model
         /// <summary>
         /// Mật khẩu
         /// </summary>
-        public string Password { get; set; }
+        public string Email { get; set; }
 
         /// <summary>
         /// Tên user
         /// </summary>
-        public string FullName { get; set; }
+        public DateTime? DateOfBirth { get; set; }
 
         /// <summary>
         /// Email
         /// </summary>
-        public string Email { get; set; }
+        public EnumGender Gender { get; set; }
 
         /// <summary>
         /// Trạng thái
         /// </summary>
-        public int Status { get; set; }
+        public EnumStatusUser Status { get; set; }
+
+        ///Role - vai trò ...
     }
 }

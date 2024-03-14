@@ -1,13 +1,7 @@
 ﻿
-using MISA.AMIS.QuyTrinh.BL.BaseBL;
-using MISA.AMIS.QuyTrinh.DL.BaseDL;
-using MISA.AMIS.QuyTrinh.DL;
-using MISA.AMIS.QuyTrinh.BL.RoleBL;
-using MISA.AMIS.QuyTrinh.DL.RoleDL;
-using MISA.AMIS.QuyTrinh.BL.SubSystemBL;
-using MISA.AMIS.QuyTrinh.DL.SubSystemDL;
-using System.Reflection.PortableExecutable;
 using Database;
+using Database.Services;
+using KnowledgeConnect.BL;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,15 +20,11 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 //
-//builder.Services.AddScoped(typeof(IBaseBL<>), typeof(BaseBL<>));
-//builder.Services.AddScoped(typeof(IBaseDL<>), typeof(BaseDL<>));
-
-//builder.Services.AddScoped<IRoleBL, RoleBL>();
-//builder.Services.AddScoped<IRoleDL, RoleDL>();
-
-//builder.Services.AddScoped<ISubSystemBL, SubSystemBL>();
-//builder.Services.AddScoped<ISubSystemDL, SubSystemDL>();
-
+//builder.Services.AddScoped(typeof(IBaseBL), typeof(BaseBL));
+builder.Services.AddScoped<IBaseBL, BaseBL>();
+builder.Services.AddScoped<IDatabaseService, DatabaseService>();
+builder.Services.AddScoped<IUserBL, UserBL>();
+//builder.Services.AddScoped(typeof(IAuthenBL), typeof(AuthenBL));
 
 // Lấy dữ liệu conection string từ file appsetting
 DataBaseContext.ConnectionString = builder.Configuration.GetConnectionString("MySql");
