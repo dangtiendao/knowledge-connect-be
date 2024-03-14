@@ -10,28 +10,58 @@ using System.Threading.Tasks;
 
 namespace Database.Services
 {
-    internal class DatabaseService
+    public class DatabaseService : IDatabaseService
     {
-        public async Task<T> GetByID<T>(string id, Type modelType) where T : BaseModel
+        /// <summary>
+        /// GetByID
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="modelType"></param>
+        /// <returns></returns>
+        public virtual async Task<object> GetByIDAsync(Type modelType, string id)
         {
             string commandText = string.Empty;
             var dicParam = new Dictionary<string, object>();
-            commandText = GenerateSelectByID(dicParam, modelType);
-            var data = await QueryUsingCommandText<T>(commandText, dicParam);
+            commandText = GenerateSelectByID(modelType, dicParam, id);
+            var data = await QueryUsingCommandText(commandText, dicParam);
             return data.FirstOrDefault();
         }
 
-        private async Task<List<T>> QueryUsingCommandText<T>(string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null) where T : BaseModel
+        /// <summary>
+        /// GetAll
+        /// </summary>
+        /// <param name="modelType"></param>
+        /// <returns></returns>
+        public async Task<object> GetAllAsync(Type modelType)
+        {
+            string commandText = string.Empty;
+            var dicParam = new Dictionary<string, object>();
+            commandText = GenerateSelectAll(modelType, dicParam);
+            var data = await QueryUsingCommandText(commandText, dicParam);
+            return data;
+        }
+
+        /// <summary>
+        /// Thực hiện Query commandText
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="commandText"></param>
+        /// <param name="dicParam"></param>
+        /// <param name="transaction"></param>
+        /// <param name="connection"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
+        public async Task<List<object>> QueryUsingCommandText(string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
         {
             var cd = new CommandDefinition();
             try
             {
-                List<T> result;
+                List<object> result;
                 var con = (transaction != null ? transaction.Connection : connection);
                 if (con != null)
                 {
                     cd = await BuildCommandDefinition(commandText, CommandType.Text, dicParam, transaction, connection);
-                    result = (await con.QueryAsync<T>(cd)).ToList();
+                    result = (await con.QueryAsync(cd)).ToList();
                 }
                 else
                 {
@@ -40,7 +70,7 @@ namespace Database.Services
                     {
                         cnn = GetConnection();
                         cd = await BuildCommandDefinition(commandText, CommandType.Text, dicParam, transaction, connection);
-                        result = (await con.QueryAsync<T>(cd)).ToList();
+                        result = (await cnn.QueryAsync(cd)).ToList();
                     }
                     finally
                     {
@@ -53,10 +83,60 @@ namespace Database.Services
             {
                 Console.WriteLine(ex.ToString());
             }
-
             throw new NotImplementedException();
+
         }
 
+        /// <summary>
+        /// Thực hiện query sử dụng stored
+        /// </summary>
+        /// <param name="commandText"></param>
+        /// <param name="dicParam"></param>
+        /// <param name="transaction"></param>
+        /// <param name="connection"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
+        public async Task<List<object>> QueryUsingStoredProcedure(string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        {
+            var cd = new CommandDefinition();
+            try
+            {
+                List<object> result;
+                var con = (transaction != null ? transaction.Connection : connection);
+                if (con != null)
+                {
+                    cd = await BuildCommandDefinition(commandText, CommandType.StoredProcedure, dicParam, transaction, connection);
+                    result = (await con.QueryAsync(cd)).ToList();
+                }
+                else
+                {
+                    IDbConnection cnn = null;
+                    try
+                    {
+                        cnn = GetConnection();
+                        cd = await BuildCommandDefinition(commandText, CommandType.StoredProcedure, dicParam, transaction, connection);
+                        result = (await cnn.QueryAsync(cd)).ToList();
+                    }
+                    finally
+                    {
+                        cnn?.Dispose();
+                    }
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+            throw new NotImplementedException();
+
+        }
+
+        /// <summary>
+        /// Get connection
+        /// </summary>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
         private IDbConnection? GetConnection()
         {
             var cnn = new MySqlConnection(DataBaseContext.ConnectionString ?? string.Empty);
@@ -79,9 +159,38 @@ namespace Database.Services
             throw new NotImplementedException();
         }
 
-        private string GenerateSelectByID(Dictionary<string, object> dicParam, Type modelType)
+        /// <summary>
+        /// Gen câu select by ID
+        /// </summary>
+        /// <param name="dicParam"></param>
+        /// <param name="modelType"></param>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
+        private string GenerateSelectByID(Type modelType, Dictionary<string, object> dicParam, string id)
         {
-            throw new NotImplementedException();
+            var instance = (BaseModel)Activator.CreateInstance(modelType);
+            var tableName = instance.GetTableName();
+            var key = instance.GetKeyProperty();
+            dicParam.Add($"@{key}", id);
+            string query = $"SELECT * FROM {tableName} WHERE {key} = @{key}";
+            return query;
         }
+
+        /// <summary>
+        /// Gen câu get all
+        /// </summary>
+        /// <param name="modelType"></param>
+        /// <param name="dicParam"></param>
+        /// <returns></returns>
+        private string GenerateSelectAll(Type modelType, Dictionary<string, object> dicParam = null)
+        {
+            var instance = (BaseModel)Activator.CreateInstance(modelType);
+            var tableName = instance.GetTableName();
+            string query = $"SELECT * FROM {tableName}";
+            return query;
+        }
+
+    
     }
 }

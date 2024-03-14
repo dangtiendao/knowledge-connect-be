@@ -1,4 +1,5 @@
-﻿using KnowledgeConnect.Model;
+﻿using Database.Services;
+using KnowledgeConnect.Model;
 using KnowledgeConnect.Model.Authen;
 using System;
 using System.Collections.Generic;
@@ -10,6 +11,9 @@ namespace KnowledgeConnect.BL
 {
     public class AuthenBL : BaseBL, IAuthenBL
     {
+        public AuthenBL(IDatabaseService databaseService) : base(databaseService)
+        {
+        }
 
         /// <summary>
         /// Đăng nhập

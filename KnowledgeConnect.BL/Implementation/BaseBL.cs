@@ -11,11 +11,19 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Linq.Expressions;
 using KnowledgeConnect.Common;
+using Database.Services;
 
 namespace KnowledgeConnect.BL
 {
     public class BaseBL : IBaseBL
     {
+        private readonly IDatabaseService _databaseService;
+
+        public BaseBL(IDatabaseService databaseService)
+        {
+            _databaseService = databaseService;
+        }
+
         public Task<ServiceResponse> DeleteDataAsync(BaseModel baseModel)
         {
             throw new NotImplementedException();
@@ -31,20 +39,9 @@ namespace KnowledgeConnect.BL
             throw new NotImplementedException();
         }
 
-        public Task<object> GetByIDAsync(Type currentModelType, string id)
+        public async Task<object> GetByIDAsync(Type currentModelType, string id)
         {
-            var instance = (BaseModel)Activator.CreateInstance(currentModelType);
-            var key = instance.GetKeyProperty();
-
-            var pagingRequest = new PagingRequest()
-            {
-                Columns = "*",
-                PageIndex = 2,
-                PageSize = 50,
-                Filter = $"[\"{key}\",\"=\",\"{id}\"]",
-                Sort = "[{\"selector\":\"EmployeeReviewStatus\",\"DESC\": false},{\"selector\":\"PeriodToDate\",\"DESC\": true},{\"selector\":\"PeriodDateType\",\"DESC\": true},{\"selector\":\"PeriodFromDate\",\"DESC\": true}]"
-            };
-            GetDataPagingAsync(currentModelType, pagingRequest);
+            return await _databaseService.GetByIDAsync (id, currentModelType);
 
             //TODO
             throw new NotImplementedException();
@@ -136,7 +133,7 @@ namespace KnowledgeConnect.BL
                         default:
                             break;
                     }
-                    
+
 
                 }
                 whereClause.Append(" ");
@@ -153,7 +150,7 @@ namespace KnowledgeConnect.BL
                 case Operator.GreaterOrEqual: return ">= {0}";
                 case Operator.LessThan: return "< {0}";
                 case Operator.LessOrEqual: return "<= {0}";
-                case Operator.Contains: 
+                case Operator.Contains:
                 case Operator.StartWith:
                 case Operator.EndWith:
                     return "LIKE {0}";
@@ -258,6 +255,11 @@ namespace KnowledgeConnect.BL
         }
 
         public Task<ServiceResponse> UpdateFieldsAsync(Type currentModelType, List<FieldUpdate> fieldUpdates)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<T> GetByIDAsync<T>(Type currentModelType, string id)
         {
             throw new NotImplementedException();
         }
