@@ -76,6 +76,18 @@ namespace KnowledgeConnect.Common.Utilities
             return null;
         }
 
+        public static Dictionary<string, object> ConvertKeysToUpperCase(Dictionary<string, object> inputDictionary)
+        {
+            var resultDictionary = new Dictionary<string, object>();
+
+            foreach (var inputDic in inputDictionary)
+            {
+                string key = inputDic.Key.ToUpper();
+                object val = inputDic.Value;
+                resultDictionary.Add(key,val);
+            }
+            return resultDictionary;
+        }
         #region Chuỗi
         //public static bool ComPa
         #endregion

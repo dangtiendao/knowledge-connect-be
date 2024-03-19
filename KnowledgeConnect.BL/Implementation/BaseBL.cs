@@ -41,14 +41,16 @@ namespace KnowledgeConnect.BL
 
         public async Task<object> GetByIDAsync(Type currentModelType, string id)
         {
-            return await _databaseService.GetByIDAsync (id, currentModelType);
+            return await _databaseService.GetByIDAsync(currentModelType, id);
 
             //TODO
             throw new NotImplementedException();
         }
 
-        public Task<object> GetDataPagingAsync(Type currentModelType, PagingRequest pagingRequest)
+        public async Task<object> GetPagingAsync(Type currentModelType, PagingRequest pagingRequest)
         {
+            await _databaseService.GetPagingAsync(currentModelType, pagingRequest); 
+
             var response = new PagingResponse();
 
             // Select [Column] FROM [Table] WHERE [Where] GenerateSortedString() GeneratePaginationString() 
@@ -259,9 +261,5 @@ namespace KnowledgeConnect.BL
             throw new NotImplementedException();
         }
 
-        public Task<T> GetByIDAsync<T>(Type currentModelType, string id)
-        {
-            throw new NotImplementedException();
-        }
     }
 }

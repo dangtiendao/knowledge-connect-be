@@ -13,9 +13,8 @@ namespace KnowledgeConnect.BL
         Task<ServiceResponse> DeleteDataAsync(BaseModel baseModel);
         Task<ServiceResponse> DeleteDatas(List<string> ids, Type currentModelType);
         Task<object> GetAll(Type currentModelType);
-        Task<T> GetByIDAsync<T>(Type currentModelType, string id);
         Task<object> GetByIDAsync(Type currentModelType, string id);
-        Task<object> GetDataPagingAsync(Type currentModelType, PagingRequest pagingRequest);
+        Task<object> GetPagingAsync(Type currentModelType, PagingRequest pagingRequest);
         Task<object> GetDetailByMasterID(Type currentModelType, string id);
         Task<ServiceResponse> SaveDataAsync(BaseModel baseModel);
         Task<ServiceResponse> SaveListDataAsync(List<BaseModel> baseModels);

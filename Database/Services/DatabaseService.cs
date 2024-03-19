@@ -1,6 +1,11 @@
 ﻿using Dapper;
+using KnowledgeConnect.Common;
+using KnowledgeConnect.Common.Constant;
+using KnowledgeConnect.Common.Utilities;
 using KnowledgeConnect.Model;
 using MySqlConnector;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -144,6 +149,16 @@ namespace Database.Services
             throw new NotImplementedException();
         }
 
+        /// <summary>
+        /// Xử lý Command
+        /// </summary>
+        /// <param name="sql"></param>
+        /// <param name="commandType"></param>
+        /// <param name="dicParam"></param>
+        /// <param name="transaction"></param>
+        /// <param name="connection"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
         private async Task<CommandDefinition> BuildCommandDefinition(string sql, CommandType commandType, Dictionary<string, object> dicParam, IDbTransaction? transaction, IDbConnection connection)
         {
             if (commandType == CommandType.StoredProcedure)
@@ -191,6 +206,323 @@ namespace Database.Services
             return query;
         }
 
-    
+        /// <summary>
+        /// Thực hiện command text
+        /// </summary>
+        /// <param name="commandText"></param>
+        /// <param name="dicParam"></param>
+        /// <param name="transaction"></param>
+        /// <param name="connection"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
+        public async Task<bool> ExecuteScalarCommandText(string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        {
+            var cd = new CommandDefinition();
+            try
+            {
+                bool result;
+                var con = (transaction != null ? transaction.Connection : connection);
+                if (con != null)
+                {
+                    cd = await BuildCommandDefinition(commandText, CommandType.Text, dicParam, transaction, connection);
+                    result = (await con.ExecuteScalarAsync<int>(cd)) > 0;
+                }
+                else
+                {
+                    IDbConnection cnn = null;
+                    try
+                    {
+                        cnn = GetConnection();
+                        cd = await BuildCommandDefinition(commandText, CommandType.Text, dicParam, transaction, connection);
+                        result = (await cnn.ExecuteScalarAsync<int>(cd)) > 0;
+
+                    }
+                    finally
+                    {
+                        cnn?.Dispose();
+                    }
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Thực hiện store procedure
+        /// </summary>
+        /// <param name="storedProcedure"></param>
+        /// <param name="dicParam"></param>
+        /// <param name="transaction"></param>
+        /// <param name="connection"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
+        public async Task<bool> ExecuteScalarStoredProcedure(string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        {
+            var cd = new CommandDefinition();
+            try
+            {
+                bool result;
+                var con = (transaction != null ? transaction.Connection : connection);
+                if (con != null)
+                {
+                    cd = await BuildCommandDefinition(storedProcedure, CommandType.StoredProcedure, dicParam, transaction, connection);
+                    result = (await con.ExecuteScalarAsync<int>(cd)) > 0;
+                }
+                else
+                {
+                    IDbConnection cnn = null;
+                    try
+                    {
+                        cnn = GetConnection();
+                        cd = await BuildCommandDefinition(storedProcedure, CommandType.StoredProcedure, dicParam, transaction, connection);
+                        result = (await cnn.ExecuteScalarAsync<int>(cd)) > 0;
+
+                    }
+                    finally
+                    {
+                        cnn?.Dispose();
+                    }
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Get dataPaging command text
+        /// </summary>
+        /// <param name="modelType"></param>
+        /// <param name="pagingRequest"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
+        public async Task<PagingResponse> GetPagingAsync(Type modelType, PagingRequest pagingRequest)
+        {
+            string commandText = string.Empty;
+            var dicParam = new Dictionary<string, object>();
+            var instance = (BaseModel)Activator.CreateInstance(modelType);
+            //Generate table
+            var tableName = instance.GetTableName();
+            //Generate column
+            var columns = pagingRequest.Columns ?? "*";
+            //Generate where
+            //Fake
+            pagingRequest.Filter = "[[\"FullName\",\"contains\",\"Đạo\"],\"AND\",[\"OrganizationUnitID\",\"in\",\"5642;5667\"],\"AND\",[[\"OrganizationUnitIDLevel2\",\"in\",\"7417\"],\"OR\",[\"OrganizationUnitIDLevel2\",\"contains\",\"7417\"]]]";
+
+            var whereStr = GenerateWhereString(pagingRequest.Filter);
+            //Generate sort
+            //Fake
+            pagingRequest.Sort = "[{\"selector\":\"CreatedDate\",\"desc\":false}]";
+            var sortStr = GenerateSortString(pagingRequest);
+
+            //Generate paging
+            var pagingStr = GeneratePagingString(pagingRequest);
+
+            var cmdText = $"SELECT {columns} FORM {tableName} {whereStr} {sortStr} {pagingStr};";
+
+            var res = await QueryUsingCommandText(cmdText , null);
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Paging
+        /// </summary>
+        /// <param name="pagingRequest"></param>
+        /// <returns></returns>
+        private string GeneratePagingString(PagingRequest pagingRequest)
+        {
+            var pagingStr = "";
+            if (pagingRequest.PageSize == -1)
+            {
+                return pagingStr;
+            }
+            if (pagingRequest.PageSize > 0 && pagingRequest.PageIndex > 0)
+            {
+                var pageSize = pagingRequest.PageSize > PagingRequestConstants.MaxPage ? PagingRequestConstants.MaxPage : pagingRequest.PageSize;
+                var pageIndex = pagingRequest.PageIndex;
+                pagingStr = $"LIMMIT {pageSize} OFFSET {(pageIndex - 1) * pageSize} ";
+            }
+            return pagingStr;
+        }
+
+        /// <summary>
+        /// Sort
+        /// </summary>
+        /// <param name="pagingRequest"></param>
+        /// <returns></returns>
+        private string GenerateSortString(PagingRequest pagingRequest)
+        {
+            if (string.IsNullOrEmpty(pagingRequest.Sort)) return string.Empty;
+            var objectSorts = Utility.Deserialize<List<Dictionary<string, object>>>(pagingRequest.Sort);
+            var sorts = new List<string>() { };
+            foreach (var objectSort in objectSorts)
+            {
+                var objConvert = Utility.ConvertKeysToUpperCase(objectSort);
+                var selector = objectSort.GetValue<string>("selector");
+                var desc = objectSort.GetValue<bool>("DESC");
+                var sortingAlgorithm = desc ? SortConstants.DESC : SortConstants.ASC;
+                sorts.Add($" {selector} {sortingAlgorithm} ");
+            }
+            return $"ORDER BY {string.Join(",", sorts)} ";
+        }
+
+        /// <summary>
+        /// Where
+        /// </summary>
+        /// <param name="filter"></param>
+        /// <returns></returns>
+        private string GenerateWhereString(string filter)
+        {
+            var whereStr = "";
+            if (filter != null)
+            {
+                //whereStr = "WHERE ";
+                whereStr = $"WHERE {ConvertFilterToWhere(filter)}";
+            }
+            return whereStr;
+        }
+
+        /// <summary>
+        /// Filter => Where
+        /// </summary>
+        /// <param name="filter"></param>
+        /// <returns></returns>
+        private string ConvertFilterToWhere(string filter)
+        {
+            JArray filterArray = JsonConvert.DeserializeObject<JArray>(filter);
+
+            StringBuilder whereClause = new StringBuilder();
+            ParseFilterArray(filterArray, whereClause);
+
+            return whereClause.ToString();
+        }
+
+        /// <summary>
+        /// Convert fillter
+        /// </summary>
+        /// <param name="filterArray"></param>
+        /// <param name="whereClause"></param>
+        private void ParseFilterArray(JArray? filterArray, StringBuilder whereClause)
+        {
+            for (int i = 0; i < filterArray.Count; i++)
+            {
+                JToken item = filterArray[i];
+                if (item is JArray)
+                {
+                    whereClause.Append("(");
+                    ParseFilterArray((JArray)filterArray[i], whereClause);
+                    whereClause.Append(")");
+                }
+                else if (item is JValue)
+                {
+                    JValue value = (JValue)item;
+                    switch (i)
+                    {
+                        case 0:
+                            //Column
+                            whereClause.Append(value);
+                            break;
+                        case 1:
+                            //Operator
+                            whereClause.Append(GetComparisonOperator(value.ToString()));
+                            break;
+                        case 2:
+                            //Value
+                            //Xử lý các giá trị , trường hợp đặc biệt của value
+                            var valueStr = value.ToString();
+                            if (value.Type == JTokenType.Date)
+                            {
+                                valueStr = $"{((DateTime)value).ToString("yyyy-MM-dd HH:mm:ss")}";
+                            }
+                            valueStr = HandleValueByOperator(filterArray[1].ToString() ,valueStr);
+                            whereClause.AppendFormat($"{valueStr}");
+                            break;
+                        default:
+                            break;
+                    }
+
+
+                }
+                whereClause.Append(" ");
+            }
+        }
+
+        /// <summary>
+        /// xử lý giá trị theo toán tử
+        /// </summary>
+        /// <param name="op"></param>
+        /// <param name="valueStr"></param>
+        /// <returns></returns>
+        private string HandleValueByOperator(string op, string valueStr)
+        {
+            switch (op.ToUpper())
+            {
+                case Operator.Equal: 
+                case Operator.NotEqual: 
+                case Operator.GreaterThan: 
+                case Operator.GreaterOrEqual:
+                case Operator.LessThan: 
+                case Operator.LessOrEqual: 
+                    return $"'{valueStr}'";
+
+                case Operator.Contains:
+                    return $"'%{valueStr}%'";
+                case Operator.StartWith:
+                    return $"'{valueStr}%'";
+                case Operator.EndWith:
+                    return $"'{valueStr}%'";
+                case Operator.And: 
+                case Operator.Or:
+                case Operator.Is: 
+                case Operator.IsNull: 
+                case Operator.NotNull: 
+                case Operator.IsNotNull: 
+                    return string.Empty;
+                case Operator.In: 
+                case Operator.NotIn:
+                    return $"({string.Join(",", valueStr.Split(";").Select(val => $"'{val}'").ToList())})";
+                default: return $"'{valueStr}'";
+            }
+        }
+
+        /// <summary>
+        /// Toán tử
+        /// </summary>
+        /// <param name="op"></param>
+        /// <returns></returns>
+        static string GetComparisonOperator(string op)
+        {
+            switch (op.ToUpper())
+            {
+                case Operator.Equal: return "=";
+                case Operator.NotEqual: return "<>";
+                case Operator.GreaterThan: return ">";
+                case Operator.GreaterOrEqual: return ">=";
+                case Operator.LessThan: return "<";
+                case Operator.LessOrEqual: return "<=";
+                case Operator.Contains:
+                case Operator.StartWith:
+                case Operator.EndWith:
+                    return "LIKE";
+                case Operator.And: return "AND";
+                case Operator.Or: return "OR";
+                case Operator.Is: return "IS";
+                case Operator.IsNull: return "IS NULL";
+                case Operator.NotNull: return "NOT NULL";
+                case Operator.IsNotNull: return "IS NOT NULL";
+                case Operator.In: return "IN";
+                case Operator.NotIn: return "NOT IN";
+
+                default: return op;
+            }
+        }
+
     }
 }

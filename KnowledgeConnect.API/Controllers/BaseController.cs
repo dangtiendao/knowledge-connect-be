@@ -159,7 +159,7 @@ namespace KnowledgeConnect.API.Controllers
             var res = new ServiceResponse();
             if (await ValidatePermission(res, Common.Enum.ModelState.None))
             {
-                res.OnSuccess(await this.BaseBL.GetDataPagingAsync(this.CurrentModelType, pagingRequest));
+                res.OnSuccess(await this.BaseBL.GetPagingAsync(this.CurrentModelType, pagingRequest));
             }
             return res;
         }

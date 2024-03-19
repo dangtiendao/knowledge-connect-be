@@ -8,7 +8,9 @@ namespace KnowledgeConnect.Common.Constant
 {
     public class PagingRequestConstants
     {
-        
+        public const int MaxPage = 5000;
+
+
 
     }
 
