@@ -15,12 +15,13 @@ namespace Database.Services
         #region Get
         public Task<object> GetByIDAsync(Type modelType, string id);
         public Task<object> GetAllAsync(Type modelType);
+        public Task<PagingResponse> GetPagingAsync(Type modelType, PagingRequest pagingRequest);
         #endregion
         public Task<List<object>> QueryUsingCommandText(string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null);
-        public Task<List<object>> QueryUsingStoredProcedure(string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null);
+        public Task<List<object>> QueryUsingStoredProcedure(string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null);
 
-        //public Task<bool>
-
+        public Task<bool> ExecuteScalarCommandText(string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null);
+        public Task<bool> ExecuteScalarStoredProcedure(string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null);
 
     }
 }
