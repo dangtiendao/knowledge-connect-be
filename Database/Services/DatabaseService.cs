@@ -17,6 +17,8 @@ namespace Database.Services
 {
     public class DatabaseService : IDatabaseService
     {
+        #region Get data
+
         /// <summary>
         /// GetByID
         /// </summary>
@@ -28,7 +30,7 @@ namespace Database.Services
             string commandText = string.Empty;
             var dicParam = new Dictionary<string, object>();
             commandText = GenerateSelectByID(modelType, dicParam, id);
-            var data = await QueryUsingCommandText(commandText, dicParam);
+            var data = await QueryUsingCommandText(modelType, commandText, dicParam);
             return data.FirstOrDefault();
         }
 
@@ -42,9 +44,46 @@ namespace Database.Services
             string commandText = string.Empty;
             var dicParam = new Dictionary<string, object>();
             commandText = GenerateSelectAll(modelType, dicParam);
-            var data = await QueryUsingCommandText(commandText, dicParam);
+            var data = await QueryUsingCommandText(modelType, commandText, dicParam);
             return data;
         }
+
+        /// <summary>
+        /// Get dataPaging command text
+        /// </summary>
+        /// <param name="modelType"></param>
+        /// <param name="pagingRequest"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
+        public async Task<PagingResponse> GetPagingAsync(Type modelType, PagingRequest pagingRequest)
+        {
+            var instance = (BaseModel)Activator.CreateInstance(modelType);
+            //Generate table
+            var tableName = instance.GetTableName();
+            //Generate column
+            var columns = pagingRequest.Columns ?? "*";
+            //Generate where
+            var whereStr = GenerateWhereString(pagingRequest.Filter);
+            //Generate sort
+            var sortStr = GenerateSortString(pagingRequest);
+            //Generate paging
+            var pagingStr = GeneratePagingString(pagingRequest);
+
+            var cmdTextData = $"SELECT {columns} FROM {tableName} {whereStr} {sortStr} {pagingStr};";
+            var cmdTextTotal = $"SELECT {columns} FROM {tableName} {whereStr};";
+            var cmdText = $"{cmdTextData} {cmdTextTotal}";
+            List<Type> types = new List<Type>() { modelType, typeof(Int32) };
+            var res = await QueryMultiUsingCommandText(types, cmdText, null);
+            return new PagingResponse
+            {
+                PageData = res.ElementAt(0),
+                Total = (int)(res.ElementAt(1).FirstOrDefault()),
+            };
+        }
+
+        #endregion
+
+        #region Query sử dụng command text
 
         /// <summary>
         /// Thực hiện Query commandText
@@ -92,16 +131,7 @@ namespace Database.Services
 
         }
 
-        /// <summary>
-        /// Thực hiện query sử dụng stored
-        /// </summary>
-        /// <param name="commandText"></param>
-        /// <param name="dicParam"></param>
-        /// <param name="transaction"></param>
-        /// <param name="connection"></param>
-        /// <returns></returns>
-        /// <exception cref="NotImplementedException"></exception>
-        public async Task<List<object>> QueryUsingStoredProcedure(string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        public async Task<List<object>> QueryUsingCommandText(Type modelType, string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
         {
             var cd = new CommandDefinition();
             try
@@ -110,7 +140,154 @@ namespace Database.Services
                 var con = (transaction != null ? transaction.Connection : connection);
                 if (con != null)
                 {
-                    cd = await BuildCommandDefinition(commandText, CommandType.StoredProcedure, dicParam, transaction, connection);
+                    cd = await BuildCommandDefinition(commandText, CommandType.Text, dicParam, transaction, connection);
+                    result = (await con.QueryAsync(modelType, cd)).ToList();
+                }
+                else
+                {
+                    IDbConnection cnn = null;
+                    try
+                    {
+                        cnn = GetConnection();
+                        cd = await BuildCommandDefinition(commandText, CommandType.Text, dicParam, transaction, connection);
+                        result = (await cnn.QueryAsync(modelType, cd)).ToList();
+                    }
+                    finally
+                    {
+                        cnn?.Dispose();
+                    }
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+            throw new NotImplementedException();
+
+        }
+
+        public async Task<List<List<object>>> QueryMultiUsingCommandText(string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        {
+            var cd = new CommandDefinition();
+            try
+            {
+                List<List<object>> result = new List<List<object>>();
+                var con = (transaction != null ? transaction.Connection : connection);
+                if (con != null)
+                {
+                    cd = await BuildCommandDefinition(commandText, CommandType.Text, dicParam, transaction, connection);
+                    using (var multi = await con.QueryMultipleAsync(cd))
+                    {
+                        do
+                        {
+                            result.Add((await multi.ReadAsync()).ToList());
+
+                        } while (!multi.IsConsumed);
+                    }
+                }
+                else
+                {
+                    IDbConnection cnn = null;
+                    try
+                    {
+                        cnn = GetConnection();
+                        cd = await BuildCommandDefinition(commandText, CommandType.Text, dicParam, transaction, connection);
+                        using (var multi = await cnn.QueryMultipleAsync(cd))
+                        {
+                            do
+                            {
+                                result.Add((await multi.ReadAsync()).ToList());
+
+                            } while (!multi.IsConsumed);
+                        }
+                    }
+                    finally
+                    {
+                        cnn?.Dispose();
+                    }
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+            throw new NotImplementedException();
+
+        }
+
+        public async Task<List<List<object>>> QueryMultiUsingCommandText(List<Type> types, string commandText, Dictionary<string, object> dicParam = null, IDbTransaction transaction = null, IDbConnection connection = null)
+        {
+            var cd = new CommandDefinition();
+            try
+            {
+                List<List<object>> result = new List<List<object>>();
+                var con = (transaction != null ? transaction.Connection : connection);
+                if (con != null)
+                {
+                    cd = await BuildCommandDefinition(commandText, CommandType.Text, dicParam, transaction, connection);
+                    using (var multi = await con.QueryMultipleAsync(cd))
+                    {
+                        foreach (Type t in types)
+                        {
+                            result.Add((await multi.ReadAsync(t)).ToList());
+                        }
+                    }
+                }
+                else
+                {
+                    IDbConnection cnn = null;
+                    try
+                    {
+                        cnn = GetConnection();
+                        cd = await BuildCommandDefinition(commandText, CommandType.Text, dicParam, transaction, connection);
+                        using (var multi = await cnn.QueryMultipleAsync(cd))
+                        {
+                            foreach (Type t in types)
+                            {
+                                result.Add((await multi.ReadAsync(t)).ToList());
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        cnn?.Dispose();
+                    }
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+            throw new NotImplementedException();
+
+        }
+
+        #endregion
+
+        #region Query sử dụng stored proceducre
+
+        /// <summary>
+        /// Thực hiện query sử dụng stored
+        /// </summary>
+        /// <param name="storedProcedure"></param>
+        /// <param name="dicParam"></param>
+        /// <param name="transaction"></param>
+        /// <param name="connection"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
+        public async Task<List<object>> QueryUsingStoredProcedure(string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        {
+            var cd = new CommandDefinition();
+            try
+            {
+                List<object> result;
+                var con = (transaction != null ? transaction.Connection : connection);
+                if (con != null)
+                {
+                    cd = await BuildCommandDefinition(storedProcedure, CommandType.StoredProcedure, dicParam, transaction, connection);
                     result = (await con.QueryAsync(cd)).ToList();
                 }
                 else
@@ -119,7 +296,7 @@ namespace Database.Services
                     try
                     {
                         cnn = GetConnection();
-                        cd = await BuildCommandDefinition(commandText, CommandType.StoredProcedure, dicParam, transaction, connection);
+                        cd = await BuildCommandDefinition(storedProcedure, CommandType.StoredProcedure, dicParam, transaction, connection);
                         result = (await cnn.QueryAsync(cd)).ToList();
                     }
                     finally
@@ -136,6 +313,142 @@ namespace Database.Services
             throw new NotImplementedException();
 
         }
+
+        public async Task<List<object>> QueryUsingStoredProcedure(Type modelType, string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        {
+            var cd = new CommandDefinition();
+            try
+            {
+                List<object> result;
+                var con = (transaction != null ? transaction.Connection : connection);
+                if (con != null)
+                {
+                    cd = await BuildCommandDefinition(storedProcedure, CommandType.StoredProcedure, dicParam, transaction, connection);
+                    result = (await con.QueryAsync(modelType, cd)).ToList();
+                }
+                else
+                {
+                    IDbConnection cnn = null;
+                    try
+                    {
+                        cnn = GetConnection();
+                        cd = await BuildCommandDefinition(storedProcedure, CommandType.StoredProcedure, dicParam, transaction, connection);
+                        result = (await cnn.QueryAsync(modelType, cd)).ToList();
+                    }
+                    finally
+                    {
+                        cnn?.Dispose();
+                    }
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+            throw new NotImplementedException();
+
+        }
+        
+        public async Task<List<List<object>>> QueryMultiUsingStoredProcedure(string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        {
+            var cd = new CommandDefinition();
+            try
+            {
+                List<List<object>> result = new List<List<object>>();
+                var con = (transaction != null ? transaction.Connection : connection);
+                if (con != null)
+                {
+                    cd = await BuildCommandDefinition(storedProcedure, CommandType.StoredProcedure, dicParam, transaction, connection);
+                    using (var multi = await con.QueryMultipleAsync(cd))
+                    {
+                        do
+                        {
+                            result.Add((await multi.ReadAsync()).ToList());
+
+                        } while (!multi.IsConsumed);
+                    }
+                }
+                else
+                {
+                    IDbConnection cnn = null;
+                    try
+                    {
+                        cnn = GetConnection();
+                        cd = await BuildCommandDefinition(storedProcedure, CommandType.StoredProcedure, dicParam, transaction, connection);
+                        using (var multi = await cnn.QueryMultipleAsync(cd))
+                        {
+                            do
+                            {
+                                result.Add((await multi.ReadAsync()).ToList());
+
+                            } while (!multi.IsConsumed);
+                        }
+                    }
+                    finally
+                    {
+                        cnn?.Dispose();
+                    }
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+            throw new NotImplementedException();
+
+        }
+        
+        public async Task<List<List<object>>> QueryMultiUsingStoredProcedure(List<Type> types, string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        {
+            var cd = new CommandDefinition();
+            try
+            {
+                List<List<object>> result = new List<List<object>>();
+                var con = (transaction != null ? transaction.Connection : connection);
+                if (con != null)
+                {
+                    cd = await BuildCommandDefinition(storedProcedure, CommandType.StoredProcedure, dicParam, transaction, connection);
+                    using (var multi = await con.QueryMultipleAsync(cd))
+                    {
+                        foreach (Type t in types)
+                        {
+                            result.Add((await multi.ReadAsync(t)).ToList());
+                        }
+                    }
+                }
+                else
+                {
+                    IDbConnection cnn = null;
+                    try
+                    {
+                        cnn = GetConnection();
+                        cd = await BuildCommandDefinition(storedProcedure, CommandType.StoredProcedure, dicParam, transaction, connection);
+                        using (var multi = await cnn.QueryMultipleAsync(cd))
+                        {
+                            foreach (Type t in types)
+                            {
+                                result.Add((await multi.ReadAsync(t)).ToList());
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        cnn?.Dispose();
+                    }
+                }
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+            throw new NotImplementedException();
+
+        }
+
+        #endregion
 
         /// <summary>
         /// Get connection
@@ -159,7 +472,7 @@ namespace Database.Services
         /// <param name="connection"></param>
         /// <returns></returns>
         /// <exception cref="NotImplementedException"></exception>
-        private async Task<CommandDefinition> BuildCommandDefinition(string sql, CommandType commandType, Dictionary<string, object> dicParam, IDbTransaction? transaction, IDbConnection connection)
+        private Task<CommandDefinition> BuildCommandDefinition(string sql, CommandType commandType, Dictionary<string, object> dicParam, IDbTransaction? transaction, IDbConnection connection)
         {
             if (commandType == CommandType.StoredProcedure)
             {
@@ -170,7 +483,7 @@ namespace Database.Services
                 ///
             }
             var commandDefinition = new CommandDefinition(commandText: sql, parameters: dicParam, transaction: transaction, commandType: commandType);
-            return commandDefinition;
+            return Task.FromResult(commandDefinition);
             throw new NotImplementedException();
         }
 
@@ -297,41 +610,6 @@ namespace Database.Services
         }
 
         /// <summary>
-        /// Get dataPaging command text
-        /// </summary>
-        /// <param name="modelType"></param>
-        /// <param name="pagingRequest"></param>
-        /// <returns></returns>
-        /// <exception cref="NotImplementedException"></exception>
-        public async Task<PagingResponse> GetPagingAsync(Type modelType, PagingRequest pagingRequest)
-        {
-            string commandText = string.Empty;
-            var dicParam = new Dictionary<string, object>();
-            var instance = (BaseModel)Activator.CreateInstance(modelType);
-            //Generate table
-            var tableName = instance.GetTableName();
-            //Generate column
-            var columns = pagingRequest.Columns ?? "*";
-            //Generate where
-            //Fake
-            pagingRequest.Filter = "[[\"FullName\",\"contains\",\"Đạo\"],\"AND\",[\"OrganizationUnitID\",\"in\",\"5642;5667\"],\"AND\",[[\"OrganizationUnitIDLevel2\",\"in\",\"7417\"],\"OR\",[\"OrganizationUnitIDLevel2\",\"contains\",\"7417\"]]]";
-
-            var whereStr = GenerateWhereString(pagingRequest.Filter);
-            //Generate sort
-            //Fake
-            pagingRequest.Sort = "[{\"selector\":\"CreatedDate\",\"desc\":false}]";
-            var sortStr = GenerateSortString(pagingRequest);
-
-            //Generate paging
-            var pagingStr = GeneratePagingString(pagingRequest);
-
-            var cmdText = $"SELECT {columns} FORM {tableName} {whereStr} {sortStr} {pagingStr};";
-
-            var res = await QueryUsingCommandText(cmdText , null);
-            throw new NotImplementedException();
-        }
-
-        /// <summary>
         /// Paging
         /// </summary>
         /// <param name="pagingRequest"></param>
@@ -365,8 +643,8 @@ namespace Database.Services
             foreach (var objectSort in objectSorts)
             {
                 var objConvert = Utility.ConvertKeysToUpperCase(objectSort);
-                var selector = objectSort.GetValue<string>("selector");
-                var desc = objectSort.GetValue<bool>("DESC");
+                var selector = objConvert.GetValue<string>("SELECTOR");
+                var desc = objConvert.GetValue<bool>("DESC");
                 var sortingAlgorithm = desc ? SortConstants.DESC : SortConstants.ASC;
                 sorts.Add($" {selector} {sortingAlgorithm} ");
             }
@@ -441,7 +719,7 @@ namespace Database.Services
                             {
                                 valueStr = $"{((DateTime)value).ToString("yyyy-MM-dd HH:mm:ss")}";
                             }
-                            valueStr = HandleValueByOperator(filterArray[1].ToString() ,valueStr);
+                            valueStr = HandleValueByOperator(filterArray[1].ToString(), valueStr);
                             whereClause.AppendFormat($"{valueStr}");
                             break;
                         default:
@@ -464,12 +742,12 @@ namespace Database.Services
         {
             switch (op.ToUpper())
             {
-                case Operator.Equal: 
-                case Operator.NotEqual: 
-                case Operator.GreaterThan: 
+                case Operator.Equal:
+                case Operator.NotEqual:
+                case Operator.GreaterThan:
                 case Operator.GreaterOrEqual:
-                case Operator.LessThan: 
-                case Operator.LessOrEqual: 
+                case Operator.LessThan:
+                case Operator.LessOrEqual:
                     return $"'{valueStr}'";
 
                 case Operator.Contains:
@@ -478,14 +756,14 @@ namespace Database.Services
                     return $"'{valueStr}%'";
                 case Operator.EndWith:
                     return $"'{valueStr}%'";
-                case Operator.And: 
+                case Operator.And:
                 case Operator.Or:
-                case Operator.Is: 
-                case Operator.IsNull: 
-                case Operator.NotNull: 
-                case Operator.IsNotNull: 
+                case Operator.Is:
+                case Operator.IsNull:
+                case Operator.NotNull:
+                case Operator.IsNotNull:
                     return string.Empty;
-                case Operator.In: 
+                case Operator.In:
                 case Operator.NotIn:
                     return $"({string.Join(",", valueStr.Split(";").Select(val => $"'{val}'").ToList())})";
                 default: return $"'{valueStr}'";
