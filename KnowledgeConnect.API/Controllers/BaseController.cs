@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using System.Collections;
 using System.Reflection;
-using System.Text.Json.Serialization;
 
 namespace KnowledgeConnect.API.Controllers
 {
@@ -116,7 +115,7 @@ namespace KnowledgeConnect.API.Controllers
         public virtual async Task<ServiceResponse> Insert([FromBody] object dataInsert)
         {
             var res = new ServiceResponse();
-            var baseModel = (BaseModel)Utility.DeserializeObject(Utility.Serialize(dataInsert), this.CurrentModelType);
+            var baseModel = (BaseModel)(JsonConvert.DeserializeObject(dataInsert.ToString(), this.CurrentModelType));
             baseModel.State = Common.Enum.ModelState.Insert;
             if (await ValidatePermission(res, Common.Enum.ModelState.Insert, baseModel))
             {
