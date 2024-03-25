@@ -30,7 +30,7 @@ namespace Database.Services
             string commandText = string.Empty;
             var dicParam = new Dictionary<string, object>();
             commandText = GenerateSelectByID(modelType, dicParam, id);
-            var data = await QueryUsingCommandText(modelType, commandText, dicParam);
+            var data = await QueryAsyncUsingCommandText(modelType, commandText, dicParam);
             return data.FirstOrDefault();
         }
 
@@ -44,7 +44,7 @@ namespace Database.Services
             string commandText = string.Empty;
             var dicParam = new Dictionary<string, object>();
             commandText = GenerateSelectAll(modelType, dicParam);
-            var data = await QueryUsingCommandText(modelType, commandText, dicParam);
+            var data = await QueryAsyncUsingCommandText(modelType, commandText, dicParam);
             return data;
         }
 
@@ -73,7 +73,7 @@ namespace Database.Services
             var cmdTextTotal = $"SELECT {columns} FROM {tableName} {whereStr};";
             var cmdText = $"{cmdTextData} {cmdTextTotal}";
             List<Type> types = new List<Type>() { modelType, typeof(Int32) };
-            var res = await QueryMultiUsingCommandText(types, cmdText, null);
+            var res = await QueryMultiAsyncUsingCommandText(types, cmdText, null);
             return new PagingResponse
             {
                 PageData = res.ElementAt(0),
@@ -95,7 +95,7 @@ namespace Database.Services
         /// <param name="connection"></param>
         /// <returns></returns>
         /// <exception cref="NotImplementedException"></exception>
-        public async Task<List<object>> QueryUsingCommandText(string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        public async Task<List<object>> QueryAsyncUsingCommandText(string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
         {
             var cd = new CommandDefinition();
             try
@@ -128,10 +128,9 @@ namespace Database.Services
                 Console.WriteLine(ex.ToString());
             }
             throw new NotImplementedException();
-
         }
 
-        public async Task<List<object>> QueryUsingCommandText(Type modelType, string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        public async Task<List<object>> QueryAsyncUsingCommandText(Type modelType, string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
         {
             var cd = new CommandDefinition();
             try
@@ -167,7 +166,7 @@ namespace Database.Services
 
         }
 
-        public async Task<List<List<object>>> QueryMultiUsingCommandText(string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        public async Task<List<List<object>>> QueryMultiAsyncUsingCommandText(string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
         {
             var cd = new CommandDefinition();
             try
@@ -217,7 +216,7 @@ namespace Database.Services
 
         }
 
-        public async Task<List<List<object>>> QueryMultiUsingCommandText(List<Type> types, string commandText, Dictionary<string, object> dicParam = null, IDbTransaction transaction = null, IDbConnection connection = null)
+        public async Task<List<List<object>>> QueryMultiAsyncUsingCommandText(List<Type> types, string commandText, Dictionary<string, object> dicParam = null, IDbTransaction transaction = null, IDbConnection connection = null)
         {
             var cd = new CommandDefinition();
             try
@@ -278,7 +277,7 @@ namespace Database.Services
         /// <param name="connection"></param>
         /// <returns></returns>
         /// <exception cref="NotImplementedException"></exception>
-        public async Task<List<object>> QueryUsingStoredProcedure(string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        public async Task<List<object>> QueryAsyncUsingStoredProcedure(string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
         {
             var cd = new CommandDefinition();
             try
@@ -314,7 +313,7 @@ namespace Database.Services
 
         }
 
-        public async Task<List<object>> QueryUsingStoredProcedure(Type modelType, string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        public async Task<List<object>> QueryAsyncUsingStoredProcedure(Type modelType, string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
         {
             var cd = new CommandDefinition();
             try
@@ -350,7 +349,7 @@ namespace Database.Services
 
         }
         
-        public async Task<List<List<object>>> QueryMultiUsingStoredProcedure(string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        public async Task<List<List<object>>> QueryMultiAsyncUsingStoredProcedure(string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
         {
             var cd = new CommandDefinition();
             try
@@ -400,7 +399,7 @@ namespace Database.Services
 
         }
         
-        public async Task<List<List<object>>> QueryMultiUsingStoredProcedure(List<Type> types, string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        public async Task<List<List<object>>> QueryMultiAsyncUsingStoredProcedure(List<Type> types, string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
         {
             var cd = new CommandDefinition();
             try
@@ -455,7 +454,7 @@ namespace Database.Services
         /// </summary>
         /// <returns></returns>
         /// <exception cref="NotImplementedException"></exception>
-        private IDbConnection? GetConnection()
+        public IDbConnection? GetConnection()
         {
             var cnn = new MySqlConnection(DataBaseContext.ConnectionString ?? string.Empty);
             return cnn;
@@ -528,7 +527,7 @@ namespace Database.Services
         /// <param name="connection"></param>
         /// <returns></returns>
         /// <exception cref="NotImplementedException"></exception>
-        public async Task<bool> ExecuteScalarCommandText(string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        public async Task<bool> ExecuteScalarAsyncUsingCommandText(string commandText, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
         {
             var cd = new CommandDefinition();
             try
@@ -573,7 +572,7 @@ namespace Database.Services
         /// <param name="connection"></param>
         /// <returns></returns>
         /// <exception cref="NotImplementedException"></exception>
-        public async Task<bool> ExecuteScalarStoredProcedure(string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
+        public async Task<bool> ExecuteScalarAsyncUsingStoredProcedure(string storedProcedure, Dictionary<string, object> dicParam, IDbTransaction transaction = null, IDbConnection connection = null)
         {
             var cd = new CommandDefinition();
             try

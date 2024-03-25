@@ -1,4 +1,6 @@
 ﻿using KnowledgeConnect.Common.Enum;
+using KnowledgeConnect.Common.Utilities;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -42,6 +44,12 @@ namespace KnowledgeConnect.Model
         /// Dữ liệu trước khi lưu
         /// </summary>
         public string OldData { get; set; }
+
+        /// <summary>
+        /// Danh sách config detail
+        /// </summary>
+        public List<EntityDetailConfig>? EntityDetailConfigs { get; set; }
+
 
         /// <summary>
         /// Gán giá trị khóa chính
@@ -127,11 +135,76 @@ namespace KnowledgeConnect.Model
         {
             GetPrimaryKeyValueDefault();
         }
+        
         private void GetPrimaryKeyValueDefault()
         {
             throw new NotImplementedException();
         }
         
+        /// <summary>
+        /// Lấy kiểu khóa chính
+        /// </summary>
+        /// <returns></returns>
+        public object GetPrimaryKeyType()
+        {
+            var properties = this.GetType().GetProperties();
+
+            PropertyInfo propertyKeyInfo = null;
+
+            if (properties != null)
+            {
+                propertyKeyInfo = properties.SingleOrDefault(p => p.GetCustomAttribute<KeyAttribute>(true) != null);
+
+                if (propertyKeyInfo != null)
+                {
+                    return propertyKeyInfo.PropertyType;
+                }
+            }
+            return null;
+        }
+        
+        /// <summary>
+        /// Get giá trị theo thuộc tính
+        /// </summary>
+        /// <param name="attributeType"></param>
+        /// <returns></returns>
+        private object? GetValueByAttribute(Type attributeType)
+        {
+            var properties = this.GetType().GetProperties();
+
+            PropertyInfo propertyKeyInfo = null;
+
+            if (properties != null)
+            {
+                propertyKeyInfo = properties.SingleOrDefault(p => p.GetCustomAttribute(attributeType, true) != null);
+
+            }
+            return propertyKeyInfo.GetValue(this);
+        }
+        
+        /// <summary>
+        /// Gán giá trị theo thuộc tính
+        /// </summary>
+        /// <param name="attributeType"></param>
+        /// <param name="value"></param>
+        public void SetValueByAttribute(Type attributeType, object? value)
+        {
+            var properties = this.GetType().GetProperties();
+
+            PropertyInfo propertyKeyInfo = null;
+
+            if (properties != null)
+            {
+                propertyKeyInfo = properties.SingleOrDefault(p => p.GetCustomAttribute(attributeType, true) != null);
+            }
+
+            if (propertyKeyInfo != null)
+            {
+                propertyKeyInfo.SetValue(this, Utility.DeserializeObject(Utility.Serialize(value), propertyKeyInfo.PropertyType));
+            }
+
+        }
+
         /// <summary>
         /// Lấy ra tên khóa chính
         /// </summary>
@@ -155,6 +228,32 @@ namespace KnowledgeConnect.Model
         {
             var tableAttribute = (TableAttribute)Attribute.GetCustomAttribute(this.GetType(), typeof(TableAttribute));
             return tableAttribute?.Name ?? "";
+        }
+    }
+
+    public class EntityDetailConfig
+    {
+        public string DetailTableName { get; set; }
+
+        public string ForeignKeyName { get; set; }
+
+        /// <summary>
+        /// Tên trường danh sách các con
+        /// </summary>
+        public string PropertyNameOnMaster { get; set; }
+
+        public bool OnDeleteCascade { get; set; }
+
+        public EntityDetailConfig(string detailTableName, string foreignKeyName, string propertyNameOnMaster, bool onDeleteCascade)
+        {
+            DetailTableName = detailTableName;
+            ForeignKeyName = foreignKeyName;
+            PropertyNameOnMaster = propertyNameOnMaster;
+            OnDeleteCascade = onDeleteCascade;
+        }
+
+        public EntityDetailConfig()
+        {
         }
     }
 }
