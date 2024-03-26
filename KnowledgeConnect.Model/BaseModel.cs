@@ -131,14 +131,15 @@ namespace KnowledgeConnect.Model
         /// <summary>
         /// Lấy giá trị khóa chính
         /// </summary>
-        public void GetPrimaryKeyValue()
+        public object GetPrimaryKeyValue()
         {
-            GetPrimaryKeyValueDefault();
-        }
-        
-        private void GetPrimaryKeyValueDefault()
-        {
-            throw new NotImplementedException();
+            var properties = this.GetType().GetProperties();
+            var propertyInfo = properties.Where(property => Attribute.IsDefined(property, typeof(KeyAttribute))).FirstOrDefault();
+            if (propertyInfo != null)
+            {
+                return propertyInfo.GetValue(this);
+            }
+            return "";
         }
         
         /// <summary>

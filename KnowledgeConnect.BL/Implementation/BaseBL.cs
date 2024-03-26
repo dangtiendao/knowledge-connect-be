@@ -19,6 +19,7 @@ using KnowledgeConnect.Common.Enum;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.VisualBasic;
 
 namespace KnowledgeConnect.BL
 {
@@ -31,7 +32,7 @@ namespace KnowledgeConnect.BL
             _databaseService = databaseService;
         }
 
-        public Task<ServiceResponse> DeleteDataAsync(BaseModel baseModel)
+        public async Task<ServiceResponse> DeleteDataAsync(BaseModel baseModel)
         {
             throw new NotImplementedException();
         }
@@ -66,6 +67,12 @@ namespace KnowledgeConnect.BL
             throw new NotImplementedException();
         }
 
+        /// <summary>
+        /// Lưu dữ liệu (có thể dùng chung thêm, sửa, xóa - do State model)
+        /// </summary>
+        /// <param name="baseModel"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
         public async Task<ServiceResponse> SaveDataAsync(BaseModel baseModel)
         {
             var response = new ServiceResponse();
@@ -129,10 +136,20 @@ namespace KnowledgeConnect.BL
             throw new NotImplementedException();
         }
 
+        /// <summary>
+        /// Sau khi commit
+        /// </summary>
+        /// <param name="baseModel"></param>
         public virtual async void AfterSaveCommit(BaseModel baseModel)
         {
         }
 
+        /// <summary>
+        /// Sau khi lưu
+        /// </summary>
+        /// <param name="baseModel"></param>
+        /// <param name="transaction"></param>
+        /// <returns></returns>
         public virtual async Task AfterSaveAsync(BaseModel baseModel, IDbTransaction transaction)
         {
         }
@@ -152,7 +169,7 @@ namespace KnowledgeConnect.BL
             //Kiểu
             if (baseModel.GetPrimaryKeyType() == typeof(int) || baseModel.GetPrimaryKeyType() == typeof(long))
             {
-                var primaryKey = (await _databaseService.QueryAsyncUsingCommandText(typeof(int),commandText, dic, transaction)).FirstOrDefault();
+                var primaryKey = (await _databaseService.QueryAsyncUsingCommandText(typeof(int), commandText, dic, transaction)).FirstOrDefault();
                 if (baseModel.State == ModelState.Insert || baseModel.State == ModelState.Duplicate)
                 {
                     baseModel.SetValueByAttribute(typeof(KeyAttribute), primaryKey);
@@ -170,6 +187,13 @@ namespace KnowledgeConnect.BL
             throw new NotImplementedException();
         }
 
+        /// <summary>
+        /// Command text theo state model
+        /// </summary>
+        /// <param name="baseModel"></param>
+        /// <param name="dic"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
         private string GetCommandTextByModelState(BaseModel baseModel, Dictionary<string, object> dic)
         {
             var commandText = string.Empty;
@@ -209,9 +233,20 @@ namespace KnowledgeConnect.BL
         /// <exception cref="NotImplementedException"></exception>
         private string BuildDeleteCommandText(BaseModel baseModel, Dictionary<string, object> dic)
         {
-            var commandText = string.Empty;
+            //DELETE FROM table_name WHERE condition;
+            //SELECT ROW_COUNT() AS rows_deleted;
+            var stringBuilder = new StringBuilder();
+            var tablename = baseModel.GetTableName();
+            if (!string.IsNullOrEmpty(tablename))
+            {
+                stringBuilder.Append($"DELETE FROM {tablename} WHERE ");
+                string key = baseModel.GetKeyProperty();
+                var keyValue = baseModel.GetPrimaryKeyValue();
+                stringBuilder.Append($"{key} = {keyValue.ToString()}");
+                stringBuilder.Append("SELECT ROW_COUNT() AS rows_deleted;");
 
-            return commandText;
+            }
+            return stringBuilder.ToString();
         }
 
         /// <summary>
@@ -223,9 +258,39 @@ namespace KnowledgeConnect.BL
         /// <exception cref="NotImplementedException"></exception>
         private string BuildUpdateCommandText(BaseModel baseModel, Dictionary<string, object> dic)
         {
-            var commandText = string.Empty;
+            //UPDATE table_name
+            //SET column1 = value1, column2 = value2, ...
+            //WHERE condition;
+            var stringBuilder = new StringBuilder();
+            var tablename = baseModel.GetTableName();
+            string key = baseModel.GetKeyProperty();
+            var keyValue = baseModel.GetPrimaryKeyValue().ToString();
+            if (!string.IsNullOrEmpty(tablename) && !string.IsNullOrEmpty(key) && !string.IsNullOrEmpty(keyValue))
+            {
+                stringBuilder.Append($"UPDATE {tablename} SET ");
 
-            return commandText;
+                var properties = this.GetType().GetProperties();
+                var propertyInfos = properties.Where(property => property.GetCustomAttribute<NotMappedAttribute>() == null && property.GetCustomAttribute<KeyAttribute>() == null);
+                List<string> values = new List<string>() { };
+                foreach (var propertyInfo in propertyInfos)
+                {
+                    if (propertyInfo.PropertyType == typeof(string))
+                    {
+                        values.Add($"`{propertyInfo.Name}` = `{propertyInfo}`");
+                    }
+                    else if (propertyInfo.PropertyType == typeof(DateTime))
+                    {
+                        values.Add($"`{propertyInfo.Name}` = `{propertyInfo}`");
+                    }
+                    else if (propertyInfo.PropertyType == typeof(bool) || propertyInfo.PropertyType == typeof(int) || propertyInfo.PropertyType == typeof(decimal))
+                    {
+                        values.Add($"`{propertyInfo.Name}` = {propertyInfo}");
+                    }
+                };
+                stringBuilder.Append(string.Join(",", values));
+                stringBuilder.Append($"WHERE {key} = {keyValue.ToString()}");
+            }
+            return stringBuilder.ToString();
         }
 
         /// <summary>
@@ -246,7 +311,7 @@ namespace KnowledgeConnect.BL
                 List<string> columns = new List<string>();
                 var values = new List<object>();
                 var propertyInfos = this.GetType().GetProperties().Where(propertyInfo => propertyInfo.GetCustomAttribute<NotMappedAttribute>() != null).ToList();
-                foreach(var propertyInfo in propertyInfos)
+                foreach (var propertyInfo in propertyInfos)
                 {
                     var value = propertyInfo.GetValue(baseModel);
                     if (value != null)
@@ -255,7 +320,7 @@ namespace KnowledgeConnect.BL
                         values.Add(value);
                     }
                 }
-                stringBuilder.Append($"({string.Join(",",columns)})");
+                stringBuilder.Append($"({string.Join(",", columns)})");
                 stringBuilder.Append($"VALUES ({string.Join(",", values)});");
                 stringBuilder.Append("SELECT LAST_INSERT_ID();");
 
