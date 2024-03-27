@@ -20,6 +20,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.VisualBasic;
+using Microsoft.Extensions.Configuration;
 
 namespace KnowledgeConnect.BL
 {
@@ -27,9 +28,11 @@ namespace KnowledgeConnect.BL
     {
         private readonly IDatabaseService _databaseService;
 
-        public BaseBL(IDatabaseService databaseService)
+        private IConfiguration _configuration;
+        public BaseBL(IConfiguration configuration, IDatabaseService databaseService)
         {
             _databaseService = databaseService;
+            _configuration = configuration;
         }
 
         public async Task<ServiceResponse> DeleteDataAsync(BaseModel baseModel)
@@ -55,7 +58,7 @@ namespace KnowledgeConnect.BL
             throw new NotImplementedException();
         }
 
-        public async Task<object> GetPagingAsync(Type currentModelType, PagingRequest pagingRequest)
+        public async Task<PagingResponse> GetPagingAsync(Type currentModelType, PagingRequest pagingRequest)
         {
             var response = await _databaseService.GetPagingAsync(currentModelType, pagingRequest);
             return response;
