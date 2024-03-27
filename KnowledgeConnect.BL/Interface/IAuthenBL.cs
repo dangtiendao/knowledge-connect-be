@@ -10,11 +10,33 @@ namespace KnowledgeConnect.BL
 {
     public interface IAuthenBL: IBaseBL
     {
+
         /// <summary>
         /// Đăng nhập
         /// </summary>
         /// <param name="loginRequest"></param>
         /// <returns></returns>
         public Task<ServiceResponse> Login(LoginRequest loginRequest);
+
+        /// <summary>
+        /// Đăng xuất
+        /// </summary>
+        /// <returns></returns>
+        public Task<ServiceResponse> Logout();
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        public Task<ServiceResponse> ValidateToken(string token);
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="v"></param>
+        /// <returns></returns>
+        public Task<object> GetInfoFromToken(string? v);
+
     }
 }
